@@ -1,5 +1,5 @@
 library(txtplot)
-
+parDir <- getwd()
 usMap <- FALSE
 usxy <- TRUE
 if(usMap){
@@ -22,11 +22,11 @@ if(usMap){
 
 } else if(usxy) {
 
-	distance <- as.matrix(read.table("~/Dropbox/TSP/att48_d.txt"))
+	distance <- as.matrix(read.table(paste0(parDir, "/data/att48_d.txt")))
 	dimnames(distance) <- list(paste0("city", 1:nrow(distance)), paste0("city", 1:ncol(distance)))
-	cityCoords <- as.matrix(read.table("~/Dropbox/TSP/att48_xy.txt"))
+	cityCoords <- as.matrix(read.table(paste0(parDir, "/data/att48_xy.txt")))
 	dimnames(cityCoords) <- list(paste0("city", 1:nrow(distance)), c("x", "y"))
-	optsol <- read.table("~/Dropbox/TSP/att48_s.txt")[[1]]
+	optsol <- read.table(paste0(parDir, "/data/att48_s.txt"))[[1]]
 
 } else {
 	set.seed(987)
@@ -46,7 +46,7 @@ if(usMap){
 
 
 
-subSetProblem <- TRUE
+subSetProblem <- FALSE
 if(subSetProblem) {
 	n <- 20
 	# set <- 10
@@ -73,7 +73,6 @@ getPath <- function(path, mat, f = identity, start = 1, shouldLoop = FALSE){
 	f(mat[getIndex(path, sym = FALSE, loop = shouldLoop)])
 }
 
-minPath <- getPath(optsol, distance, f = sum)
 
 evap <- function(oldP, newP, evapRate) (1 - evapRate) * oldP + newP 
 getProb <- function(tao, nu, alpha, beta) {
@@ -120,10 +119,12 @@ subsetAnts <- function(paths, quant = 1) {# return a boolean to indicate which a
 	paths <= quantile(paths, quant)
 }
 
-qthresh <- 0.2
+if(usxy) minPath <- getPath(optsol, distance, f = sum)
+
+qthresh <- 0.1 # works pretty well by subsetting to only the fastest ants. SHould try with all ants.
 pherPower <- 1
 
-lineBegin <- 100 
+lineBegin <- 400 
 nCities <- ncol(distance)
 evapRate <- 0.05
 nAnts <- 500
@@ -151,18 +152,18 @@ beta <- 1.05 # distance
 iter <- 0
 plotMap <- TRUE
 plotpathLen <- TRUE
-imagePheromone <- TRUE
+imagePheromone <- FALSE
 estLine <- TRUE
 bestPathLen <- NULL
 meanPathLen <- NULL
-
+bestIter <- NULL
 
 
 # whichInit <- which(lower.tri(distInv), arr.ind = TRUE)[, c(2, 1)]
 # barplot(distInv[whichInit])
 
 
-# plot.new()
+plot.new()
 
 
 # updateBeta <- FALSE
@@ -202,6 +203,7 @@ while(pathCounter <= countThresh & iter <= maxIter){
 		shortestPath <- shortPath
 		shortestPathLen <- pathLen[[shortestPath]]
 		bestAnt <- ants[[shortPath]]
+		bestIter <- iter
 		if (returnToStart) bestAnt <- c(bestAnt, startCity)
 	}
 
@@ -248,7 +250,7 @@ while(pathCounter <= countThresh & iter <= maxIter){
 
 		if(estLine & iter > lineBegin + 3) {
 			x <- lineBegin:iter
-			y <- bestPathLen[x]
+			y <- meanPathLen[x]
 			fit <- lm(y ~ x)
 			abline(fit)
 		}
@@ -285,24 +287,33 @@ lastAnt <- ants[[shortPath]]
 
 shortestPathLen - minPath
 
-par(mfrow = c(2, 2))
+if(usxy){
+
+	pdf(paste0("evap", evapRate, "_qthresh", qthresh, "_", maxIter, "iter_", nAnts, "Ants_pherPower", pherPower, "_alpha", alpha, "_beta", beta, ".pdf"))
+	par(mfrow = c(2, 2))
 
 
-pointCol <- rep("black", iter)
-pointCol[c(shortestPath, shortPath)] <- "red"
-plot(1:iter, bestPathLen, type = "b", col = pointCol, pch = 16)
+	plot(1:iter, meanPathLen, type = "b", pch = 1, ylim = range(c(minPath, bestPathLen, meanPathLen)), cex = 0.5)
+	lines(1:iter, bestPathLen, type = "b", pch = 1, col = "firebrick", cex = 0.5)
+	abline(h = minPath, lty = 3)
+	legend("topright", legend = c("Mean path length", "Shortest path length"), fill = c("black", "firebrick"))
+	text(iter * 0.65, mean(range(meanPathLen)), label = paste0("Min diff from optimal: ", shortestPathLen - minPath))
+	# pointCol <- rep("black", iter)
+	# pointCol[c(shortestPath, shortPath)] <- "red"
+	# plot(1:iter, bestPathLen, type = "b", col = pointCol, pch = 16)
 
 
-plot(cityCoords[, "x"], cityCoords[, "y"], pch = c(16, rep(1, nCities - 1)), main = "Optimal Solution", xlab = "", ylab = "")
-lines(cityCoords[optsol, "x"], cityCoords[optsol, "y"], col = "red")
+	plot(cityCoords[, "x"], cityCoords[, "y"], pch = c(16, rep(1, nCities - 1)), main = "Optimal Solution", xlab = "", ylab = "")
+	lines(cityCoords[optsol, "x"], cityCoords[optsol, "y"], col = "red")
 
-plot(cityCoords[, "x"], cityCoords[, "y"], pch = c(16, rep(1, nCities - 1)), , main = "My Best Ant", xlab = "", ylab = "")
-lines(cityCoords[bestAnt, "x"], cityCoords[bestAnt, "y"])
+	plot(cityCoords[, "x"], cityCoords[, "y"], pch = c(16, rep(1, nCities - 1)), , main = "My Best Ant", xlab = "", ylab = "")
+	lines(cityCoords[bestAnt, "x"], cityCoords[bestAnt, "y"])
 
-plot(cityCoords[, "x"], cityCoords[, "y"], pch = c(16, rep(1, nCities - 1)), main = "My Last Ant", xlab = "", ylab = "")
-lines(cityCoords[lastAnt, "x"], cityCoords[lastAnt, "y"], col = "blue")
-
-
+	plot(cityCoords[, "x"], cityCoords[, "y"], pch = c(16, rep(1, nCities - 1)), main = "My Last Best Ant", xlab = "", ylab = "")
+	lines(cityCoords[lastAnt, "x"], cityCoords[lastAnt, "y"], col = "blue")
+	
+	dev.off()
+}
 
 
 
