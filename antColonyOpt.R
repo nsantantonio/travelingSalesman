@@ -1,7 +1,7 @@
 library(txtplot)
 parDir <- getwd()
-usMap <- FALSE
-usxy <- TRUE
+usMap <- TRUE
+usxy <- FALSE
 if(usMap){
 
 	library(maps)
@@ -121,13 +121,13 @@ subsetAnts <- function(paths, quant = 1) {# return a boolean to indicate which a
 
 if(usxy) minPath <- getPath(optsol, distance, f = sum)
 
-qthresh <- 0.1 # works pretty well by subsetting to only the fastest ants. SHould try with all ants.
+qthresh <- 0.2 # works pretty well by subsetting to only the fastest ants. SHould try with all ants.
 pherPower <- 1
 
 lineBegin <- 400 
 nCities <- ncol(distance)
 evapRate <- 0.05
-nAnts <- 500
+nAnts <- 1000
 startCity <- 1
 returnToStart <- TRUE
 nPaths <- nCities - 1
